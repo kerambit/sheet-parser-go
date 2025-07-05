@@ -4,7 +4,10 @@ import (
 	"fmt"
 	"github.com/playwright-community/playwright-go"
 	"log"
+	"os"
+	"path"
 	"sheet-parser/utils"
+	"sync"
 )
 
 const UrlToParse = "https://example.com/some/sheeet/1231"
@@ -54,7 +57,31 @@ func main() {
 	fmt.Println(elems, len(elems))
 
 	pageTitle, _ := page.Title()
-	fmt.Println(pageTitle)
 
 	browser.Close()
+
+	formattedTitle := utils.FormatTitle(pageTitle)
+
+	dirPath := path.Join("./", formattedTitle)
+
+	_, err = os.ReadDir(dirPath)
+
+	if err != nil {
+		os.Mkdir(dirPath, os.ModePerm)
+	}
+
+	var wg sync.WaitGroup
+
+	for _, link := range elems {
+		wg.Add(1)
+		go func() {
+			err := utils.DownloadImage(dirPath, link)
+			if err != nil {
+				fmt.Printf("could not download image: %v", err)
+			}
+			wg.Done()
+		}()
+	}
+
+	wg.Wait()
 }
