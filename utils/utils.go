@@ -1,14 +1,20 @@
 package utils
 
 import (
+	"context"
+	"encoding/base64"
 	"fmt"
+	"github.com/chromedp/chromedp"
 	"github.com/playwright-community/playwright-go"
 	"io"
+	"log"
 	"net/http"
 	"os"
+	"path"
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -70,7 +76,7 @@ func DownloadImage(dirName, url string) error {
 
 	_, err = io.Copy(file, resp.Body)
 
-	return nil
+	return err
 }
 
 func getFileName(url string) string {
@@ -81,4 +87,68 @@ func getFileName(url string) string {
 
 	parts = strings.Split(parts[len(parts)-1], "?")
 	return parts[0]
+}
+
+func ConvertToPng(dirName string) ([]string, error) {
+	cwd, err := os.Getwd()
+	if err != nil {
+		return nil, err
+	}
+
+	svgPaths, _ := os.ReadDir(path.Join(cwd, dirName))
+
+	pngPaths := make([]string, len(svgPaths))
+
+	var wg sync.WaitGroup
+
+	for _, svgPath := range svgPaths {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			fileData, err := os.ReadFile(path.Join(cwd, dirName, svgPath.Name()))
+			fileName := svgPath.Name()
+
+			if strings.Contains(fileName, ".png") {
+				pngPaths = append(pngPaths, path.Join(cwd, dirName, fileName))
+				return
+			}
+
+			if err != nil {
+				return
+			}
+
+			html := fmt.Sprintf(`
+		<html>
+			<body style="margin:0">
+				<img src="data:image/svg+xml;base64,%s" />
+			</body>
+		</html>`, base64.StdEncoding.EncodeToString(fileData))
+
+			ctx, cancel := chromedp.NewContext(context.Background())
+			defer cancel()
+
+			var output []byte
+			err = chromedp.Run(ctx,
+				chromedp.Navigate("data:text/html,"+html),
+				chromedp.WaitVisible("img"),
+				chromedp.Screenshot("img", &output, chromedp.NodeVisible),
+			)
+			if err != nil {
+				log.Fatal(err)
+			}
+
+			pngPath := strings.Replace(fileName, ".svg", ".png", 1)
+			fmt.Println(pngPath)
+
+			os.WriteFile(path.Join(cwd, dirName, pngPath), output, 0644)
+			pngPaths = append(pngPaths, path.Join(cwd, dirName, pngPath))
+
+			os.Remove(path.Join(cwd, dirName, fileName))
+		}()
+
+	}
+
+	wg.Wait()
+
+	return pngPaths, nil
 }

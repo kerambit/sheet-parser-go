@@ -84,4 +84,13 @@ func main() {
 	}
 
 	wg.Wait()
+
+	pngPaths, err := utils.ConvertToPng(dirPath)
+
+	if err != nil {
+		log.Fatalf("could not convert to png: %v", err)
+	}
+
+	fmt.Println(pngPaths)
+
 }
