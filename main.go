@@ -91,6 +91,11 @@ func main() {
 		log.Fatalf("could not convert to png: %v", err)
 	}
 
-	fmt.Println(pngPaths)
+	err = utils.ConvertToPdf(dirPath, pngPaths)
 
+	if err != nil {
+		log.Fatalf("could not convert to pdf: %v", err)
+	}
+
+	fmt.Printf("Converted to PDF successfully to %s", dirPath)
 }

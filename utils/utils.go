@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"github.com/chromedp/chromedp"
+	"github.com/go-pdf/fpdf"
 	"github.com/playwright-community/playwright-go"
 	"io"
 	"log"
@@ -101,7 +102,7 @@ func ConvertToPng(dirName string) ([]string, error) {
 
 	var wg sync.WaitGroup
 
-	for _, svgPath := range svgPaths {
+	for i, svgPath := range svgPaths {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -109,7 +110,7 @@ func ConvertToPng(dirName string) ([]string, error) {
 			fileName := svgPath.Name()
 
 			if strings.Contains(fileName, ".png") {
-				pngPaths = append(pngPaths, path.Join(cwd, dirName, fileName))
+				pngPaths[i] = path.Join(cwd, dirName, fileName)
 				return
 			}
 
@@ -138,10 +139,9 @@ func ConvertToPng(dirName string) ([]string, error) {
 			}
 
 			pngPath := strings.Replace(fileName, ".svg", ".png", 1)
-			fmt.Println(pngPath)
 
 			os.WriteFile(path.Join(cwd, dirName, pngPath), output, 0644)
-			pngPaths = append(pngPaths, path.Join(cwd, dirName, pngPath))
+			pngPaths[i] = path.Join(cwd, dirName, pngPath)
 
 			os.Remove(path.Join(cwd, dirName, fileName))
 		}()
@@ -151,4 +151,37 @@ func ConvertToPng(dirName string) ([]string, error) {
 	wg.Wait()
 
 	return pngPaths, nil
+}
+
+func ConvertToPdf(dirName string, pngs []string) error {
+	cwd, err := os.Getwd()
+
+	if err != nil {
+		return err
+	}
+
+	pdf := fpdf.New("P", "mm", "A4", "")
+
+	for _, imgPath := range pngs {
+		pdf.AddPage()
+
+		fmt.Println("Processing", imgPath)
+
+		pageWidth, _ := pdf.GetPageSize()
+
+		pdf.ImageOptions(
+			imgPath,
+			0, 0,
+			pageWidth, 0,
+			false,
+			fpdf.ImageOptions{ImageType: "PNG", ReadDpi: true},
+			0, "",
+		)
+
+		os.Remove(imgPath)
+	}
+
+	err = pdf.OutputFileAndClose(path.Join(cwd, dirName, "output.pdf"))
+
+	return err
 }
