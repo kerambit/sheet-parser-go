@@ -3,12 +3,12 @@ package utils
 import (
 	"context"
 	"encoding/base64"
+	"flag"
 	"fmt"
 	"github.com/chromedp/chromedp"
 	"github.com/go-pdf/fpdf"
 	"github.com/playwright-community/playwright-go"
 	"io"
-	"log"
 	"net/http"
 	"os"
 	"path"
@@ -135,7 +135,8 @@ func ConvertToPng(dirName string) ([]string, error) {
 				chromedp.Screenshot("img", &output, chromedp.NodeVisible),
 			)
 			if err != nil {
-				log.Fatal(err)
+				fmt.Errorf("failed to take a screenshot: %v", err)
+				return
 			}
 
 			pngPath := strings.Replace(fileName, ".svg", ".png", 1)
@@ -184,4 +185,12 @@ func ConvertToPdf(dirName string, pngs []string) error {
 	err = pdf.OutputFileAndClose(path.Join(cwd, dirName, "output.pdf"))
 
 	return err
+}
+
+func ParseUrlFromArgs() string {
+	urlPtr := flag.String("url", "", "provide url to parse")
+
+	flag.Parse()
+
+	return *urlPtr
 }
